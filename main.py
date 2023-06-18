@@ -2,6 +2,7 @@
 import math
 from scipy.stats import binom
 import matplotlib.pyplot as plt
+import os
 
 
 # Press Shift+F10 to execute it or replace it with your code.
@@ -132,7 +133,13 @@ def Test1():
 # FIXME All the functions above may not be necessary, consider deleting them once push to github.
 
 plotGraph = 1
+saveGraph = 1
+folder_path = "Images/"
+if not os.path.exists(folder_path):
+    os.makedirs(folder_path)
 
+
+# \label{col:vdm_extract}
 def ComputeNpiFloat(t, c, rho):
     # This computes the float n' needed in order to guarantee c ciphertexts.
     lnp = math.log(rho)
@@ -146,75 +153,102 @@ def ComputeNpi(t, c, rho):
     return math.ceil(ComputeNpiFloat(t, c, rho))
 
 
+# \label{lem:vdm_extract}
 def Compute_delta1(npi, t, c):
     return math.e ** (-(1 - (c - 1) / (1 - t) / npi) ** 2 * (1 - t) * npi / 2)
 
 
-def ComputeAlpha(n, t, m, npi, c, rho):
+# \label{lem:vdm_runtime}
+def ComputeRuntimeSecond(l, npi, c, beta1, beta2, beta3, beta4, beta5, beta6):
+    # This computes the vandermonde runtime (ms) for l matices of size npi * c,
+    return (l * npi * (beta1 + beta2) +
+            l * npi * c * (beta3 + beta4) +
+            l * c * (2 * beta5 + 3 * beta6)) / 1000
+
+
+# \label{col:committee_fail}
+def ComputeAlpha(n, t, m, v, rho):
     assert n * t > m
-    return 1 - (1 - (rho ** (1 / m) - n * t / (n - m)) * n / (n - n * t + m)) ** (1 / npi / c)
+    return 1 - (1 - (rho ** (1 / m) - n * t / (n - m)) * n / (n - n * t + m)) ** (1 / v)
 
 
-def Compute_delta2(n, t, m, npi, c, alpha):
-    p = 1 - (1 - alpha) ** (npi * c)
+# \label{lem:committee_fail}
+def Compute_delta2(n, t, m, v, alpha):
+    p = 1 - (1 - alpha) ** v
     return (n * t / (n - m) + (1 - (n * t - m) / n) * p) ** m
 
 
-def ComputeRuntime(npi, c, beta):
-    # This computes the vandermonde runtime,
-    return npi * c * beta
-
-
-def ComputeRuntimeAndAlpha(n, t, circuit_size, d, k, beta, kappa):
-    c = math.ceil(circuit_size / d / k / 2)
+# \label(lem:vdm_runtime{}
+def ComputeRuntimeAndAlpha(n, t, circuit_size, k, l, d,
+                           beta1, beta2, beta3, beta4, beta5, beta6, kappa):
+    c = math.ceil(circuit_size / k / l / d * 2)
     assert c < n
     rho = 2 ** (-kappa) / 2 / k
     npi = ComputeNpi(t, c, rho)
     m = math.floor(n / k)
-    alpha = ComputeAlpha(n, t, m, npi, c, rho)
-    runtime = ComputeRuntime(npi, c, beta)
+    runtime = ComputeRuntimeSecond(l, npi, c, beta1, beta2, beta3, beta4, beta5, beta6)
+    alpha = ComputeAlpha(n, t, m, runtime, rho)
     return alpha, runtime
 
+# Does not use Vandermonde
+def ComputeRuntimeAndAlphaBase(n, t, circuit_size, k, d,
+                           beta1, beta2, beta4, beta5, beta6, kappa):
+    c = 1
+    l = math.ceil(circuit_size / k / d * 2)
+    assert l < n
+    rho = 2 ** (-kappa) / 2 / k
+    npi = ComputeNpi(t, c, rho)
+    m = math.floor(n / k)
+    runtime = ComputeRuntimeSecond(l, npi, c, beta1, beta2, 0, beta4, beta5, beta6)
+    alpha = ComputeAlpha(n, t, m, runtime, rho)
+    return alpha, runtime
 
-def ComputeRuntimesAndAlphas(n, t, circuit_size, d, beta, kappa):
-    res, x, y1, y2 = [],[],[],[]
+# Fixed iteration l and test different committee size.
+def ComputeRuntimesAndAlphasForK(n, t, circuit_size, l, d,
+                             beta1, beta2, beta3, beta4, beta5, beta6, kappa):
+    res, x, y1, y2 = [], [], [], []
 
-    for k in range(20,n,5):
-        c = math.ceil(circuit_size / d / k / 2)
+    for k in range(20, n, 5):
+        c = math.ceil(circuit_size / k / l / d * 2)
         assert c < n
         rho = 2 ** (-kappa) / 2 / k
         npi = ComputeNpi(t, c, rho)
         m = math.floor(n / k)
         if n * t <= m:
             continue
-        if t**m > rho:
+        if t ** m > rho:
             break
-        alpha = ComputeAlpha(n, t, m, npi, c, rho)
+
+        runtime = ComputeRuntimeSecond(l, npi, c, beta1, beta2, beta3, beta4, beta5, beta6)
+        alpha = ComputeAlpha(n, t, m, runtime, rho)
         if alpha < 0:
             continue
-        runtime = ComputeRuntime(npi, c, beta)
+
         if plotGraph:
             x.append(k)
             y1.append(alpha)
-            y2.append(runtime/1000) # Measured in seconds
-        res.append((k, m, npi,alpha, runtime))
+            y2.append(runtime)  # Measured in seconds
+        res.append((k, m, npi, alpha, runtime))
 
     if plotGraph:
-        plotGraphForAlphasAndRuntimes(x,y1,y2)
+        if saveGraph:
+            filename = folder_path + f"RuntimeAlphaVSK_l={l}.png"
+            plotGraphForAlphasAndRuntimes(x, y1, y2, filename)
+        else:
+            plotGraphForAlphasAndRuntimes(x, y1, y2)
     return res
 
-def plotGraphForAlphasAndRuntimes(x, y1, y2):
+def plotGraphForAlphasAndRuntimes(x, y1, y2, filename = ''):
     # Create figure and axes objects
     fig, ax1 = plt.subplots()
 
     # Plot data on the first axis
     ax1.plot(x, y1, 'b-', label='alpha')
     ax1.set_xlabel('Number of committee')
-    ax1.set_ylabel('tolerable failure rate per scalar multiplication', color='b')
+    ax1.set_ylabel('tolerable failure rate per second', color='b')
     ax1.tick_params('y', colors='b')
     ax1.minorticks_on()
     # ax1.set_yscale('log')  # Set logarithmic scale on y-axis
-    
 
     # Create a second axis sharing the same x-axis
     ax2 = ax1.twinx()
@@ -231,10 +265,14 @@ def plotGraphForAlphasAndRuntimes(x, y1, y2):
     # Add legend and title
     ax1.legend(loc='upper left')
     ax2.legend(loc='upper right')
-    plt.title('Tradeoff between tolerable per scalar multiplication failure rate and runtime')
+    plt.title(f'Tradeoff between tolerable failure rate per second and runtime')
 
     # Display the plot
-    plt.show()
+    if filename == '':
+        plt.show()
+    else:
+        plt.savefig(filename)
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
@@ -246,19 +284,37 @@ if __name__ == '__main__':
     # m = math.floor(n / k)
     # c = 50
 
-    circuit_size = 100000000
-    d = 10000
-    # 9 ms per plaintext ciphertext multiplication.
-    beta = 9
+    circuit_size = 10000000
+    d = 2**13
+
+    # The following specifies the runtime (ms) for each type of operation
+
+    # β1 Receive ciphertext
+    beta1 = 0
+
+    # β2 Verify zero-knowledge proof
+    beta2 = 0
+
+    # β3 Scalar multiplication
+    beta3 = 9
+
+    # β4 Ciphertext addition
+    beta4 = 0
+
+    # β5 Ciphertext multiplication
+    beta5 = 34
+
+    # β6 Unpacking ciphertext
+    beta6 = 0
+
     kappa = 40
 
-    # npi = ComputeNpi(t, c, 2 ** (-41))
-    #
-    # alpha = ComputeAlpha(n, t, m, npi, c, 2 ** (-41))
-    #
-    # print(npi, alpha)
+    l = 1
 
-    ComputeRuntimesAndAlphas(n, t, circuit_size, d, beta, kappa)
+    print(ComputeRuntimeAndAlpha(n, t, circuit_size, 100, 20, d,
+                           beta1, beta2, beta3, beta4, beta5, beta6, kappa))
 
+    for l in (1,5,10,20):
+        ComputeRuntimesAndAlphasForK(n, t, circuit_size, l, d,
+                                 beta1, beta2, beta3, beta4, beta5, beta6, kappa)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
