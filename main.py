@@ -13,6 +13,20 @@ def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
+def ComputeShamirComitteeHonestSurvivors(n, t, f, lam):
+    assert t+f <1
+    cor = math.ceil(n*t)
+    fail = math.ceil(n*f)
+    op = 1- 2**(-lam-1)
+    while binom.cdf(cor,n,t) < op:
+        cor += 1
+
+    while binom.cdf(fail,n,f) < op:
+       fail += 1
+    print(cor,fail)
+    return n-cor-fail
+
+
 
 def CommiteeSize(fail_rate_per_ms, runTime, t, lam):
     # Assuming selection with replacement.
@@ -311,10 +325,11 @@ if __name__ == '__main__':
 
     l = 1
 
-    print(ComputeRuntimeAndAlpha(n, t, circuit_size, 100, 20, d,
-                           beta1, beta2, beta3, beta4, beta5, beta6, kappa))
+    # print(ComputeRuntimeAndAlpha(n, t, circuit_size, 100, 20, d,
+    #                        beta1, beta2, beta3, beta4, beta5, beta6, kappa))
+    #
+    # for l in (1,5,10,20):
+    #     ComputeRuntimesAndAlphasForK(n, t, circuit_size, l, d,
+    #                              beta1, beta2, beta3, beta4, beta5, beta6, kappa)
 
-    for l in (1,5,10,20):
-        ComputeRuntimesAndAlphasForK(n, t, circuit_size, l, d,
-                                 beta1, beta2, beta3, beta4, beta5, beta6, kappa)
-
+    print(ComputeShamirComitteeHonestSurvivors(500,2/3,1/10,40))
