@@ -3,7 +3,7 @@ import math
 from scipy.stats import binom
 
 n = 10000
-t = 2/3
+t = 3/5
 w = 10000
 d = 10000
 lam = 40
@@ -25,12 +25,12 @@ for i,m in enumerate(m_range):
         cor += 1
         if cor == m-1:
             break
-
+    print("-----------")
     if cor == m-1:
         print("Committee size",m,"not large enough")
     else:
-        for f in [int((m-cor)/4),int((m-cor)/2),int((m-cor)/4*3)]:
-            gamma = int(m-cor - f +1/2)
+        for f in [int((m-cor)/8),int((m-cor)/4),int((m-cor)/8*3),int((m-cor)/2),int((m-cor)/4*3)]:
+            gamma = int((m-cor - f +1)/2)
             l = math.ceil(w/c/gamma)
             tau = d * l * m_polynomial_times[i]
 
@@ -40,7 +40,7 @@ for i,m in enumerate(m_range):
 
             alpha = 1-(1-p)**(1/tau)
             # Printing variables with 6 slots allocated for each
-            print(f"Committee size: {m:<6}, Corrupted parties: {cor:<6}, Slack parties: {f:<6}, Packing parameters: {gamma:<6},"
+            print(f"Committee size: {m:<6}, Corrupted parties: {cor:<6}, Slack parties: {f:<6}, Packing parameters: {gamma:<6}, pack/committee {gamma/m:<6}," 
                   f" Batch size: {l:<6}, Eval/Inter Runtime: {int(tau):<6}, Tolerable failure rate per second:", alpha)
 
 
